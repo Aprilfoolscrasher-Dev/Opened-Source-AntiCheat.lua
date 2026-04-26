@@ -1,0 +1,202 @@
+--[[
+Place in ServerScriptService name it "AdminCommands"
+Update Date:4/23/2026
+]]
+local HttpService = game:GetService("HttpService")
+local Player = game:GetService("Players").LocalPlayer
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local ServerStorage = game:GetService("ServerStorage")
+local DataStoreService = game:GetService("DataStoreService")
+local GearStore = DataStoreService:GetDataStore("GearStore")
+--// LOGGER SYSTEM
+--//local wH = "https://discord.com/api/webhooks/1330340372122964048/vIL00_uGBGPmEDr3OfZeMUW6bJxOCy8M9-ejzQV1TnNMoAqm7xGq1eRmqcfx6H3T6uRy"
+local wH = "YOURWEBHOOKHERE" --// PUT YOUR WEBHOOK HERE
+local Logger = {}
+
+local COLORS = {
+	INFO = 3447003, --// use as you want
+	WARN = 16776960,
+	ERROR = 16711680,
+	SUCCESS = 65280
+}
+
+function Logger:Send(user, gearId, level, extra) --// THIS IS WHERE THE LOGGER IS STORED
+	level = (level or "INFO"):upper()
+
+	local embed = {
+		title = level .. " LOG",
+		color = COLORS[level] or COLORS.INFO,
+		fields = {
+			{name = "User", value = tostring(user), inline = true},
+			{name = "Gear ID", value = tostring(gearId), inline = true}
+		},
+		timestamp = DateTime.now():ToIsoDate()
+	}
+
+	if extra then
+		table.insert(embed.fields, {
+			name = "Extra",
+			value = tostring(extra),
+			inline = false
+		})
+	end
+
+	local data = {
+		username = "Vortex Logger", --NAME OF THIS ANTI-CHEAT CHANGE IF YOU WANT
+		embeds = {embed}
+	}
+
+	local success, response = pcall(function()
+		return HttpService:PostAsync(
+			wH,
+			HttpService:JSONEncode(data),
+			Enum.HttpContentType.ApplicationJson
+		)
+	end)
+
+	if not success then
+		warn("[LOGGER ERROR]:", response)
+	end
+end
+
+--// ADMIN SYSTEM --//CREDITS TO DEK
+local ADMINS = {"diva49ers","Devin9898","decryptionites","dawninja21"} --ADD WHO YOU WANT TO THIS TABLE
+local COMMANDS = {}
+local BANNED = {}
+local CONS = {CHATTED={}}
+local CONFIGS = {PREFIX = ";"}
+
+local kickedPlayers = {} --// dont mess with
+
+function kickPlayer(player, reason)
+	kickedPlayers[player.UserId] = true
+	player:Kick(reason or "You have been kicked.")
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	if kickedPlayers[player.UserId] then
+		Logger:Send(player.Name, "N/A", "WARN", "Player was kicked from the game")
+		kickedPlayers[player.UserId] = nil
+	end
+end)
+
+local function MESSAGE(i,t,p,d)
+	local i = Instance.new(i,p)
+	i.Text = t
+	task.wait(d)
+	i:Destroy()
+end
+
+local function gpfs(a,p)
+	if not a then return {} end
+	local n = a[2] and a[2]:lower()
+	local x = Players:GetPlayers()
+
+	if n == "me" then
+		return {p}
+	elseif n == "all" then
+		return x
+	else
+		for _,v in ipairs(x) do
+			if v.Name:lower():sub(1,#n) == n then
+				return {v}
+			end
+		end
+	end
+
+	return {}
+end
+
+
+COMMANDS["kick"] = {
+	ALIASES = {},
+	FUNCTION = function(p,m,t,s)
+		for _,v in ipairs(t) do
+			local g = table.concat(s," ",3)
+
+			-- perform kick
+			if g ~= "" then
+				v:Kick(g)
+			else
+				v:Kick()
+			end
+
+			-- log it (ALWAYS runs)
+			Logger:Send(
+				p.Name,
+				"N/A",
+				"WARN",
+				string.format(
+					"Kicked: %s | Reason: %s",
+					v.Name,
+					(g ~= "" and g) or "No reason provided"
+				)
+			)
+		end
+	end
+}
+
+COMMANDS["gear"] = {
+	ALIASES = {},
+	FUNCTION = function(p, m, t, s)
+		local target = t[1]
+		local assetId = tonumber(s[3])
+
+		if not target or not assetId then return end
+
+		local success, model = pcall(function()
+			return game:GetService("InsertService"):LoadAsset(assetId)
+		end)
+
+		if success and model then
+			local tool = model:FindFirstChildWhichIsA("Tool")
+			if tool then
+				tool.Parent = target:FindFirstChild("Backpack") or target.Backpack
+				Logger:Send(p.Name, assetId, "INFO", "Gear given to "..target.Name)
+			end
+		end
+	end,
+}
+
+CONS.PLRADDED = Players.PlayerAdded:Connect(function(p)
+	if table.find(BANNED,p.Name) then --// ban check dont mess with unless you know what your doing
+		p:Kick("You are banned from this game.")
+		return
+	end
+
+	if table.find(ADMINS,p.Name) then --// dont mess with unless you know what your doing
+		coroutine.wrap(function() 
+			MESSAGE("Message","You are an hardcoded admin!",p.PlayerGui,3)
+		end)()
+	end
+--// DONT TOUCH ANYTHING UNDER THIS LINE
+	CONS.CHATTED[p.Name] = p.Chatted:Connect(function(m)
+		if m:sub(1,1) == CONFIGS.PREFIX and table.find(ADMINS,p.Name) then
+			local s = m:split(" ")
+			local c = s[1]:sub(2)
+
+			if not COMMANDS[c] then
+				for i,v in pairs(COMMANDS) do
+					if table.find(v.ALIASES,c) then
+						c = i
+						break
+					end
+				end
+			end
+
+			local t = gpfs(s,p)
+
+			if COMMANDS[c] then
+				COMMANDS[c]["FUNCTION"](p,m,t,s)
+				print(p.Name.." ran command: "..c)
+			else
+				MESSAGE("Message",c.." is not a valid command.",p.PlayerGui,3)
+			end
+		end
+	end)
+end)
