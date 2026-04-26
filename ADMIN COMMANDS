@@ -14,7 +14,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local GearStore = DataStoreService:GetDataStore("GearStore")
 --// LOGGER SYSTEM
---//local wH = "https://discord.com/api/webhooks/1330340372122964048/vIL00_uGBGPmEDr3OfZeMUW6bJxOCy8M9-ejzQV1TnNMoAqm7xGq1eRmqcfx6H3T6uRy"
 local wH = "YOURWEBHOOKHERE" --// PUT YOUR WEBHOOK HERE
 local Logger = {}
 
